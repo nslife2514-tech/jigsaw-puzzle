@@ -131,16 +131,17 @@
     background: rgba(0,0,0,0.4);
     border: 2px solid rgba(231, 193, 78, 0.4);
     border-radius: 14px;
-    padding: 2px;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    gap: 2px;
+    gap: 0;
     box-shadow: var(--shadow);
     touch-action: none;
+    overflow: hidden;
   }
   .piece {
-    border-radius: 2px;
+    border-radius: 0;
     background-size: 300% 300%;
     background-repeat: no-repeat;
     cursor: grab;
@@ -149,23 +150,16 @@
     user-select: none;
   }
   .piece.dragging {
-    transform: scale(1.06);
+    transform: scale(1.04);
     z-index: 10;
     box-shadow: 0 12px 30px rgba(0,0,0,0.5);
     cursor: grabbing;
   }
   .piece.drop-target {
-    outline: 3px dashed var(--gold);
-    outline-offset: -3px;
+    outline: 2px dashed var(--gold);
+    outline-offset: -2px;
   }
-  .piece.correct::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 2px;
-    box-shadow: inset 0 0 0 1px rgba(231, 193, 78, 0.45);
-    pointer-events: none;
-  }
+  /* ไม่ต้องมีกรอบบอกชิ้นที่ถูกตำแหน่ง — ภาพต่อเนื่องเองคือสัญญาณ */
 
   .play-hint {
     text-align: center;
@@ -391,7 +385,7 @@
     <div class="board" id="board"></div>
     <p class="play-hint">
       ลากชิ้นภาพไปวางทับชิ้นอื่นเพื่อสลับที่<br/>
-      เมื่อชิ้นถูกต้องจะมีกรอบสีทองล้อมรอบ
+      เมื่อภาพต่อเนื่องไหลรับกัน คือชิ้นนั้นอยู่ตรงตำแหน่งแล้ว
     </p>
     <div class="peek-row">
       <button class="btn-peek" id="btn-peek">
