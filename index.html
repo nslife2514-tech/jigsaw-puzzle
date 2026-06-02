@@ -133,15 +133,15 @@
     border-radius: 14px;
     padding: 6px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 5px;
     box-shadow: var(--shadow);
     touch-action: none;
   }
   .piece {
-    border-radius: 6px;
-    background-size: 400% 400%;
+    border-radius: 8px;
+    background-size: 300% 300%;
     background-repeat: no-repeat;
     cursor: grab;
     position: relative;
@@ -173,6 +173,65 @@
     opacity: 0.7;
     margin-top: 12px;
     line-height: 1.6;
+  }
+
+  /* peek button + overlay */
+  .peek-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 14px;
+  }
+  .btn-peek {
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: rgba(231, 193, 78, 0.15);
+    color: var(--gold-soft);
+    border: 1px solid rgba(231, 193, 78, 0.5);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-peek:active { transform: scale(0.96); }
+  .btn-peek:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .peek-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 100;
+    padding: 20px;
+  }
+  .peek-overlay.active { display: flex; }
+  .peek-overlay img {
+    max-width: min(82vw, 480px);
+    width: 100%;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+    border-radius: 14px;
+    border: 2px solid var(--gold);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .peek-caption {
+    margin-top: 18px;
+    color: var(--gold-soft);
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .peek-count {
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
   }
 
   /* end screen (win/lose share layout) */
@@ -313,7 +372,8 @@
     </div>
     <p class="preview-caption">
       จดจำภาพนี้ให้ดี<br/>
-      ต่อภาพให้กลับมาเหมือนเดิมใน <strong>๑ นาที</strong>
+      ต่อภาพให้กลับมาเหมือนเดิมใน <strong>๑ นาที ๓๐ วินาที</strong><br/>
+      <span style="font-size:13px;opacity:0.75;">ระหว่างเล่นกดปุ่ม "ดูภาพ" เพื่อพักจิตกลับมาตั้งมั่นได้</span>
     </p>
     <div class="center">
       <button class="cta" id="btn-start">เริ่มเล่น</button>
@@ -326,14 +386,26 @@
       <div>
         <div class="moves" id="moves">การเคลื่อนไหว: ๐</div>
       </div>
-      <div class="timer" id="timer">๑:๐๐</div>
+      <div class="timer" id="timer">๑:๓๐</div>
     </div>
     <div class="board" id="board"></div>
     <p class="play-hint">
       ลากชิ้นภาพไปวางทับชิ้นอื่นเพื่อสลับที่<br/>
       เมื่อชิ้นถูกต้องจะมีกรอบสีทองล้อมรอบ
     </p>
+    <div class="peek-row">
+      <button class="btn-peek" id="btn-peek">
+        <span>👁️</span><span>ดูภาพ ๓ วินาที</span>
+      </button>
+    </div>
   </section>
+
+  <!-- ============ PEEK OVERLAY ============ -->
+  <div class="peek-overlay" id="peek-overlay">
+    <img id="peek-img" alt="ภาพต้นแบบ" />
+    <p class="peek-caption">หายใจเข้าลึกๆ จดจำภาพไว้</p>
+    <div class="peek-count" id="peek-count">๓</div>
+  </div>
 
   <!-- ============ SCREEN: WIN ============ -->
   <section id="screen-win" class="screen">
@@ -376,12 +448,13 @@
 
 <script>
 /* =========================================================
-   เกมต่อภาพทุเรียน — Jigsaw 4x4 / 60 วินาที / drag & drop
+   เกมต่อภาพชนบททอสกานี — Jigsaw 3x3 / 90 วินาที / drag & drop
    ========================================================= */
 
-const GRID = 4;                      // 4x4 = 16 ชิ้น
+const GRID = 3;                      // 3x3 = 9 ชิ้น
 const TOTAL = GRID * GRID;
-const TIME_LIMIT = 60;               // วินาที
+const TIME_LIMIT = 90;               // วินาที (๑ นาที ๓๐ วินาที)
+const PEEK_SECONDS = 3;              // ระยะเวลาดูภาพต้นแบบ (วินาที)
 let currentImage = "puzzle1.jpg";    // เปลี่ยนได้จากหน้าเลือกภาพ
 
 const board = document.getElementById("board");
@@ -447,7 +520,7 @@ function renderPieces() {
     const col = correctIndex % GRID;
     const row = Math.floor(correctIndex / GRID);
     node.style.backgroundImage = `url("${currentImage}")`;
-    // 4x4 grid: positions 0%, 33.33%, 66.66%, 100%
+    // 3x3 grid: positions 0%, 50%, 100%
     const px = (col / (GRID - 1)) * 100;
     const py = (row / (GRID - 1)) * 100;
     node.style.backgroundPosition = `${px}% ${py}%`;
@@ -561,8 +634,8 @@ function formatTime(sec) {
 function tick() {
   timeLeft--;
   timerEl.textContent = formatTime(timeLeft);
-  timerEl.classList.toggle("warn", timeLeft <= 20 && timeLeft > 10);
-  timerEl.classList.toggle("danger", timeLeft <= 10);
+  timerEl.classList.toggle("warn", timeLeft <= 30 && timeLeft > 15);
+  timerEl.classList.toggle("danger", timeLeft <= 15);
   if (timeLeft <= 0) {
     endGame(false);
   }
@@ -587,6 +660,12 @@ function startGame() {
 function endGame(won) {
   gameActive = false;
   clearInterval(timerId);
+  // close peek overlay if still open
+  if (peekActive) {
+    document.getElementById("peek-overlay").classList.remove("active");
+    document.getElementById("btn-peek").disabled = false;
+    peekActive = false;
+  }
   // sync end-screen images with current photo
   document.getElementById("win-img").src  = currentImage;
   document.getElementById("lose-img").src = currentImage;
@@ -613,6 +692,49 @@ document.querySelectorAll(".select-card").forEach(card => {
 });
 
 document.getElementById("btn-start").addEventListener("click", startGame);
+
+/* ---------------- peek (ดูภาพ) ---------------- */
+/* การพักจิตให้กลับมาตั้งมั่น — หยุดเวลา ๓ วินาที เห็นภาพต้นแบบ */
+const peekOverlay = document.getElementById("peek-overlay");
+const peekImg     = document.getElementById("peek-img");
+const peekCount   = document.getElementById("peek-count");
+const btnPeek     = document.getElementById("btn-peek");
+let peekActive = false;
+
+function startPeek() {
+  if (!gameActive || peekActive) return;
+  peekActive = true;
+  // pause main timer
+  clearInterval(timerId);
+  // show overlay with current image
+  peekImg.src = currentImage;
+  peekCount.textContent = toThai(PEEK_SECONDS);
+  peekOverlay.classList.add("active");
+  btnPeek.disabled = true;
+
+  let remaining = PEEK_SECONDS;
+  const peekId = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      peekCount.textContent = toThai(remaining);
+    } else {
+      clearInterval(peekId);
+      endPeek();
+    }
+  }, 1000);
+}
+
+function endPeek() {
+  peekOverlay.classList.remove("active");
+  btnPeek.disabled = false;
+  peekActive = false;
+  // resume main timer only if game still active
+  if (gameActive) {
+    timerId = setInterval(tick, 1000);
+  }
+}
+
+btnPeek.addEventListener("click", startPeek);
 
 /* gracefully handle missing image */
 document.getElementById("preview-img").addEventListener("error", function() {
